@@ -22,7 +22,11 @@ void afficheTab();
 
 void handlerSIGINT(int sig);
 
+void handlerSIGCHLD(int sig);
+
 int rechercheTableConnexion(int pid);
+
+int rechercheCaddieTableConnexion(int pid);
 
 int main()
 {
@@ -35,6 +39,12 @@ int main()
   B.sa_flags = 0;
   sigemptyset(&B.sa_mask);
   sigaction(SIGINT, &B, NULL);
+
+  struct sigaction C;
+  C.sa_handler = handlerSIGCHLD;
+  C.sa_flags = 0;
+  sigemptyset(&C.sa_mask);
+  sigaction(SIGCHLD, &C, NULL);
 
   // Creation des ressources
   // Creation de la file de message
@@ -124,11 +134,34 @@ int main()
                         }
                       }
 
-                      if(reponse.data1){
+
+
+
+                      if(reponse.data1){//LOGIN success
                         index_tab = rechercheTableConnexion(m.expediteur);
-                        if(index_tab != -1)
+                        if(index_tab != -1)//Vérifie que le client qui veut se LOGIN est connecté au serveur
                           strcpy(tab->connexions[index_tab].nom, m.data2);
+
+                        pid_t pid_caddie = fork();
+                        //Si erreur de fork, annule le LOGIN
+                        if(pid_caddie == -1){//Erreur fork
+                          perror("Erreur de fork");
+                          reponse.data1 = 0;
+                          strcpy(reponse.data4, "Impossible de créer le Caddie");
+                          strcpy(tab->connexions[index_tab].nom, "");
+                        }
+                        else if(pid_caddie == 0){//Caddie
+                          if (execl("./Caddie", "Caddie", NULL) == -1){
+                            perror("Erreur de execl()");
+                            exit(1);
+                          }
+                        }
+                        else{//Serveur -> stock pid Caddie
+                          tab->connexions[index_tab].pidCaddie = pid_caddie;
+                        }
+
                       }
+
                       //Envoi du feedback de login au client
                       reponse.type = m.expediteur;
                       reponse.expediteur = getpid();
@@ -152,8 +185,20 @@ int main()
       case UPDATE_PUB : // TO DO
                       break;
 
-      case CONSULT :  // TO DO
+      case CONSULT :  
                       fprintf(stderr,"(SERVEUR %d) Requete CONSULT reçue de %d\n",getpid(),m.expediteur);
+                      
+                      index_tab = rechercheTableConnexion(m.expediteur);
+                  
+                      if(index_tab != -1){
+                        m.type = tab->connexions[index_tab].pidCaddie;
+                        m.expediteur = getpid();
+
+                        if (msgsnd(idQ, &m, sizeof(MESSAGE) - sizeof(long), 0) == -1){
+                          perror("Erreur de msgsnd");
+                          exit(1);
+                        }
+                      }
                       break;
 
       case ACHAT :    // TO DO
@@ -207,9 +252,27 @@ void handlerSIGINT(int sig){
   exit(0);
 }
 
+void handlerSIGCHLD(int sig){
+  int id = wait(NULL);
+  fprintf(stderr, "(SERVEUR %d) Suppression du fils %d de la table des processus\n", getpid(), id);
+
+  int index_tab = rechercheCaddieTableConnexion(id);
+  if(index_tab != -1)
+    tab->connexions[index_tab].pidCaddie = 0;
+}
+
 int rechercheTableConnexion(int pid){
   for(int i=0; i<6; i++){
     if(tab->connexions[i].pidFenetre == pid)
+      return i;
+  }
+
+  return -1;
+}
+
+int rechercheCaddieTableConnexion(int pid){
+  for (int i = 0; i < 6; i++){
+    if (tab->connexions[i].pidCaddie == pid)
       return i;
   }
 

@@ -14,6 +14,8 @@
 #include <mysql.h>
 #include "protocole.h" // contient la cle et la structure d'un message
 
+#include <iostream>
+
 int idQ;
 
 ARTICLE articles[10];
@@ -43,7 +45,7 @@ int main(int argc,char* argv[])
     perror("(CADDIE) Erreur de msgget");
     exit(1);
   }
-
+  
   // Connexion à la base de donnée
   connexion = mysql_init(NULL);
   if (mysql_real_connect(connexion,"localhost","Student","PassStudent1_","PourStudent",0,0,0) == NULL)
@@ -51,7 +53,6 @@ int main(int argc,char* argv[])
     fprintf(stderr,"(SERVEUR) Erreur de connexion à la base de données...\n");
     exit(1);  
   }
-
 
   MESSAGE m;
   MESSAGE reponse;
@@ -62,10 +63,11 @@ int main(int argc,char* argv[])
   MYSQL_ROW  Tuple;
 
   // Récupération descripteur écriture du pipe
-  fdWpipe = atoi(argv[1]);
+  //fdWpipe = atoi(argv[1]);
 
   while(1)
   {
+    
     if (msgrcv(idQ,&m,sizeof(MESSAGE)-sizeof(long),getpid(),0) == -1)
     {
       perror("(CADDIE) Erreur de msgrcv");
@@ -78,12 +80,20 @@ int main(int argc,char* argv[])
                       fprintf(stderr,"(CADDIE %d) Requete LOGIN reçue de %d\n",getpid(),m.expediteur);
                       break;
 
-      case LOGOUT :   // TO DO
+      case LOGOUT :   
                       fprintf(stderr,"(CADDIE %d) Requete LOGOUT reçue de %d\n",getpid(),m.expediteur);
+                      mysql_close(connexion);
+                      exit(0);
                       break;
 
       case CONSULT :  // TO DO
                       fprintf(stderr,"(CADDIE %d) Requete CONSULT reçue de %d\n",getpid(),m.expediteur);
+
+                      sprintf(requete, "select * from UNIX_FINAL where id = '%d'", m.data1);
+                      mysql_query(connexion, requete);
+                      resultat = mysql_store_result(connexion);
+                      
+
                       break;
 
       case ACHAT :    // TO DO

@@ -471,6 +471,17 @@ void handlerSIGUSR1(int sig)
                   if(m.data1){
                     logged = 1;
                     w->loginOK();
+
+                    //Envoi de la requête automatique si LOGIN success
+                    m.type = 1;
+                    m.expediteur = getpid();
+                    m.requete = CONSULT;
+                    m.data1 = 1;
+
+                    if (msgsnd(idQ, &m, sizeof(MESSAGE) - sizeof(long), 0) == -1){
+                      perror("Erreur de msgsnd");
+                      exit(1);
+                    }
                   }
                   break;
 
