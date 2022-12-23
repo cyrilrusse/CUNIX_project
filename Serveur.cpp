@@ -11,12 +11,15 @@
 #include <signal.h>
 #include <string.h>
 #include <unistd.h>
+#include <setjmp.h>
 #include "protocole.h" // contient la cle et la structure d'un message
 #include "FichierClient.h" // module de gestion des clients
 
 int idQ,idShm,idSem;
 int fdPipe[2];
 TAB_CONNEXIONS *tab;
+sigjmp_buf contexte;
+size_t taille_msg = sizeof(MESSAGE) - sizeof(long);
 
 void afficheTab();
 
@@ -49,22 +52,19 @@ int main()
   // Creation des ressources
   // Creation de la file de message
   fprintf(stderr,"(SERVEUR %d) Creation de la file de messages\n",getpid());
-  if ((idQ = msgget(CLE,IPC_CREAT | IPC_EXCL | 0600)) == -1)  // CLE definie dans protocole.h
-  {
-    perror("(SERVEUR) Erreur de msgget");
-    exit(1);
-  }
+  // CLE definie dans protocole.h
+  if ((idQ = msgget(CLE,IPC_CREAT | IPC_EXCL | 0600)) == -1){perror("(SERVEUR) Erreur de msgget");exit(1);}
 
   // TO BE CONTINUED
 
   // Creation du pipe
-  // TO DO
+  if(pipe(fdPipe)){perror("Erreur de pipe");exit(1);}
+
 
   // Initialisation du tableau de connexions
   tab = (TAB_CONNEXIONS*) malloc(sizeof(TAB_CONNEXIONS)); 
 
-  for (int i=0 ; i<6 ; i++)
-  {
+  for (int i=0 ; i<6 ; i++){
     tab->connexions[i].pidFenetre = 0;
     strcpy(tab->connexions[i].nom,"");
     tab->connexions[i].pidCaddie = 0;
@@ -78,25 +78,32 @@ int main()
   // TO DO
 
   // Creation du processus AccesBD (étape 4)
-  // TO DO
+  pid_t pid_acces_bd = fork();
+  if(pid_acces_bd == -1){perror("Erreur de fork");exit(1);}
+  else if(pid_acces_bd == 0){
+    char str[10];
+    sprintf(str, "%d", fdPipe[0]);
+    if (execl("./AccesBD", "AccesBD", str, NULL) == -1){perror("Erreur de execl()");exit(1);}
+  }
 
   MESSAGE m;
   MESSAGE reponse;
-
+  
   while(1)
   {
   	fprintf(stderr,"(SERVEUR %d) Attente d'une requete...\n",getpid());
-    if (msgrcv(idQ,&m,sizeof(MESSAGE)-sizeof(long),1,0) == -1)
-    {
+    // Sauvegarde du contexte, définissant où reprendre en cas d'interuption par un signal
+    sigsetjmp(contexte, 1);
+    if (msgrcv(idQ, &m, sizeof(MESSAGE)-sizeof(long), 1, 0) == -1){
       perror("(SERVEUR) Erreur de msgrcv");
-      msgctl(idQ,IPC_RMID,NULL);
+      msgctl(idQ, IPC_RMID, NULL);
       exit(1);
     }
 
     switch(m.requete)
     {
       case CONNECT :
-                      fprintf(stderr,"(SERVEUR %d) Requete CONNECT reçue de %d\n",getpid(),m.expediteur);
+                      fprintf(stderr, "(SERVEUR %d) Requete CONNECT reçue de %d\n", getpid(), m.expediteur);
                       for(int i = 0; i<6; i++){
                         if(tab->connexions[i].pidFenetre == 0){
                           tab->connexions[i].pidFenetre = m.expediteur;
@@ -110,10 +117,12 @@ int main()
                       if((index_tab = rechercheTableConnexion(m.expediteur)) != -1)
                         tab->connexions[index_tab].pidFenetre = 0;
                       break;
-      case LOGIN :    // TO DO
+      case LOGIN :    
                       fprintf(stderr,"(SERVEUR %d) Requete LOGIN reçue de %d : --%d--%s--%s--\n",getpid(),m.expediteur,m.data1,m.data2,m.data3);
                       reponse.data1 = 1;
-                      if(m.data1 == 1){//Nouveau Client
+
+                      // Nouveau Client
+                      if(m.data1 == 1){
                         if(estPresent(m.data2)){
                           reponse.data1 = 0;
                           strcpy(reponse.data4, "Nouveau Client impossible : Client existe déjà");
@@ -122,7 +131,8 @@ int main()
                           ajouteClient(m.data2, m.data3);
                         }
                       }
-                      else{//Connexion Client déjà existant
+                      // Connexion Client déjà existant
+                      else{
                         int pos = estPresent(m.data2);
                         if(!pos){
                           reponse.data1 = 0;
@@ -134,12 +144,11 @@ int main()
                         }
                       }
 
-
-
-
-                      if(reponse.data1){//LOGIN success
+                      // LOGIN success
+                      if(reponse.data1){
                         index_tab = rechercheTableConnexion(m.expediteur);
-                        if(index_tab != -1)//Vérifie que le client qui veut se LOGIN est connecté au serveur
+                        // Vérifie que le client qui veut se LOGIN est connecté au serveur
+                        if(index_tab != -1)
                           strcpy(tab->connexions[index_tab].nom, m.data2);
 
                         pid_t pid_caddie = fork();
@@ -151,15 +160,16 @@ int main()
                           strcpy(tab->connexions[index_tab].nom, "");
                         }
                         else if(pid_caddie == 0){//Caddie
-                          if (execl("./Caddie", "Caddie", NULL) == -1){
-                            perror("Erreur de execl()");
-                            exit(1);
-                          }
+                          char str_fdpipe[10];
+                          sprintf(str_fdpipe, "%d", fdPipe[1]);
+                          if (execl("./Caddie", "Caddie", str_fdpipe, NULL) == -1){perror("Erreur de execl()");exit(1);}
                         }
                         else{//Serveur -> stock pid Caddie
                           tab->connexions[index_tab].pidCaddie = pid_caddie;
+                          // Retransmet la requête LOGIN au nouveau Caddie
+                          m.type = pid_caddie;
+                          if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
                         }
-
                       }
 
                       //Envoi du feedback de login au client
@@ -167,18 +177,22 @@ int main()
                       reponse.expediteur = getpid();
                       reponse.requete = LOGIN;
 
-                      if (msgsnd(idQ, &reponse, sizeof(MESSAGE) - sizeof(long), 0) == -1){
-                        perror("Erreur de msgsnd");
-                        exit(1);
-                      }
+                      if (msgsnd(idQ, &reponse, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
                       kill(m.expediteur, SIGUSR1);
                       break;
 
       case LOGOUT :  // TO DO
                       fprintf(stderr,"(SERVEUR %d) Requete LOGOUT reçue de %d\n",getpid(), m.expediteur);
-                      
+
+
                       if((index_tab = rechercheTableConnexion(m.expediteur))!= -1){
                         strcpy(tab->connexions[index_tab].nom, "");
+                        m.type = tab->connexions[index_tab].pidCaddie;
+                        if (msgsnd(idQ, &m, taille_msg, 0) == -1){
+                          perror("Erreur de msgsnd");
+                          exit(1);
+                        }
+                        tab->connexions[index_tab].pidCaddie = 0;
                       }
                       break;
 
@@ -192,9 +206,8 @@ int main()
                   
                       if(index_tab != -1){
                         m.type = tab->connexions[index_tab].pidCaddie;
-                        m.expediteur = getpid();
 
-                        if (msgsnd(idQ, &m, sizeof(MESSAGE) - sizeof(long), 0) == -1){
+                        if (msgsnd(idQ, &m, taille_msg, 0) == -1){
                           perror("Erreur de msgsnd");
                           exit(1);
                         }
@@ -254,11 +267,13 @@ void handlerSIGINT(int sig){
 
 void handlerSIGCHLD(int sig){
   int id = wait(NULL);
-  fprintf(stderr, "(SERVEUR %d) Suppression du fils %d de la table des processus\n", getpid(), id);
+  fprintf(stderr, "(SERVEUR %d) Suppression du fils zombi %d\n", getpid(), id);
 
   int index_tab = rechercheCaddieTableConnexion(id);
   if(index_tab != -1)
     tab->connexions[index_tab].pidCaddie = 0;
+
+  siglongjmp(contexte, 2);
 }
 
 int rechercheTableConnexion(int pid){

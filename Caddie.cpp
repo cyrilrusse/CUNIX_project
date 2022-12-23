@@ -17,6 +17,7 @@
 #include <iostream>
 
 int idQ;
+size_t taille_msg = sizeof(MESSAGE) - sizeof(long);
 
 ARTICLE articles[10];
 int nbArticles = 0;
@@ -40,19 +41,7 @@ int main(int argc,char* argv[])
 
   // Recuperation de l'identifiant de la file de messages
   fprintf(stderr,"(CADDIE %d) Recuperation de l'id de la file de messages\n",getpid());
-  if ((idQ = msgget(CLE,0)) == -1)
-  {
-    perror("(CADDIE) Erreur de msgget");
-    exit(1);
-  }
-  
-  // Connexion à la base de donnée
-  connexion = mysql_init(NULL);
-  if (mysql_real_connect(connexion,"localhost","Student","PassStudent1_","PourStudent",0,0,0) == NULL)
-  {
-    fprintf(stderr,"(SERVEUR) Erreur de connexion à la base de données...\n");
-    exit(1);  
-  }
+  if ((idQ = msgget(CLE,0)) == -1){perror("(CADDIE) Erreur de msgget");exit(1);}
 
   MESSAGE m;
   MESSAGE reponse;
@@ -63,37 +52,42 @@ int main(int argc,char* argv[])
   MYSQL_ROW  Tuple;
 
   // Récupération descripteur écriture du pipe
-  //fdWpipe = atoi(argv[1]);
+  fdWpipe = atoi(argv[1]);
 
   while(1)
   {
     
-    if (msgrcv(idQ,&m,sizeof(MESSAGE)-sizeof(long),getpid(),0) == -1)
-    {
-      perror("(CADDIE) Erreur de msgrcv");
-      exit(1);
-    }
+    if (msgrcv(idQ,&m,taille_msg,getpid(),0) == -1){perror("(CADDIE) Erreur de msgrcv");exit(1);}
 
     switch(m.requete)
     {
-      case LOGIN :    // TO DO
+      case LOGIN :    
                       fprintf(stderr,"(CADDIE %d) Requete LOGIN reçue de %d\n",getpid(),m.expediteur);
+                      pidClient = m.expediteur;
                       break;
 
       case LOGOUT :   
                       fprintf(stderr,"(CADDIE %d) Requete LOGOUT reçue de %d\n",getpid(),m.expediteur);
-                      mysql_close(connexion);
                       exit(0);
                       break;
 
-      case CONSULT :  // TO DO
+      case CONSULT :  
                       fprintf(stderr,"(CADDIE %d) Requete CONSULT reçue de %d\n",getpid(),m.expediteur);
+                      m.expediteur = getpid();
+                      //Transfert de la requête à AccesBD via le pipe
+                      if(write(fdWpipe, &m, sizeof(MESSAGE)) != sizeof(MESSAGE)){perror("(CADDIE) Erreur de write");exit(1);}
+                      //Attente de la réponse
+                      fprintf(stderr,"(CADDIE %d) Attente de la réponse de BD\n", getpid());
+                      if (msgrcv(idQ,&m,taille_msg,getpid(),0) == -1){perror("(CADDIE) Erreur de msgrcv");exit(1);}
+                      if(m.data1 == -1)//Article non trouvé => pas de réponse
+                        break;
 
-                      sprintf(requete, "select * from UNIX_FINAL where id = '%d'", m.data1);
-                      mysql_query(connexion, requete);
-                      resultat = mysql_store_result(connexion);
-                      
-
+                      //envoie de l'article au Client
+                      m.type = pidClient;
+                      m.expediteur = getpid();
+                      fprintf(stderr, "(CADDIE %d)Envoie de la réponse au Client\n", getpid());
+                      if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CADDIE) Erreur de msgsnd");exit(1);}
+                      kill(pidClient, SIGUSR1);
                       break;
 
       case ACHAT :    // TO DO

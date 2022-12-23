@@ -20,6 +20,7 @@ bool logged = 0;
 char* pShm;
 ARTICLE articleEnCours;
 float totalCaddie = 0.0;
+size_t taille_msg = sizeof(MESSAGE) - sizeof(long);
 
 void handlerSIGUSR1(int sig);
 void handlerSIGUSR2(int sig);
@@ -27,8 +28,7 @@ void handlerSIGINT(int sig);
 
 #define REPERTOIRE_IMAGES "images/"
 
-WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::WindowClient)
-{
+WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::WindowClient){
   ui->setupUi(this);
 
   // Configuration de la table du panier (ne pas modifer)
@@ -48,10 +48,7 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
   // Recuperation de l'identifiant de la file de messages
   fprintf(stderr,"(CLIENT %d) Recuperation de l'id de la file de messages\n",getpid());
 
-  if ((idQ = msgget(CLE, 0)) == -1){
-    perror("Erreur de msgget");
-    exit(1);
-  }
+  if ((idQ = msgget(CLE, 0)) == -1){perror("Erreur de msgget");exit(1);}
 
   // Recuperation de l'identifiant de la mémoire partagée
   //fprintf(stderr,"(CLIENT %d) Recuperation de l'id de la mémoire partagée\n",getpid());
@@ -81,15 +78,12 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
   m.expediteur = getpid();
   m.requete = CONNECT;
 
-  if(msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1){
-    perror("Erreur de msgsnd");
-    exit(1);
-  }
+  if(msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1){perror("Erreur de msgsnd");exit(1);}
 
   // Exemples à supprimer
-  setPublicite("Promotions sur les concombres !!!");
-  setArticle("pommes",5.53,18,"pommes.jpg");
-  ajouteArticleTablePanier("cerises",8.96,2);
+  // setPublicite("Promotions sur les concombres !!!");
+  // setArticle("pommes",5.53,18,"pommes.jpg");
+  // ajouteArticleTablePanier("cerises",8.96,2);
 }
 
 WindowClient::~WindowClient()
@@ -100,10 +94,8 @@ WindowClient::~WindowClient()
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///// Fonctions utiles : ne pas modifier /////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::setNom(const char* Text)
-{
-  if (strlen(Text) == 0 )
-  {
+void WindowClient::setNom(const char* Text){
+  if (strlen(Text) == 0 ){
     ui->lineEditNom->clear();
     return;
   }
@@ -111,17 +103,14 @@ void WindowClient::setNom(const char* Text)
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-const char* WindowClient::getNom()
-{
+const char* WindowClient::getNom(){
   strcpy(nom,ui->lineEditNom->text().toStdString().c_str());
   return nom;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::setMotDePasse(const char* Text)
-{
-  if (strlen(Text) == 0 )
-  {
+void WindowClient::setMotDePasse(const char* Text){
+  if (strlen(Text) == 0 ){
     ui->lineEditMotDePasse->clear();
     return;
   }
@@ -129,17 +118,14 @@ void WindowClient::setMotDePasse(const char* Text)
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-const char* WindowClient::getMotDePasse()
-{
+const char* WindowClient::getMotDePasse(){
   strcpy(motDePasse,ui->lineEditMotDePasse->text().toStdString().c_str());
   return motDePasse;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::setPublicite(const char* Text)
-{
-  if (strlen(Text) == 0 )
-  {
+void WindowClient::setPublicite(const char* Text){
+  if (strlen(Text) == 0 ){
     ui->lineEditPublicite->clear();
     return;
   }
@@ -147,8 +133,7 @@ void WindowClient::setPublicite(const char* Text)
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::setImage(const char* image)
-{
+void WindowClient::setImage(const char* image){
   // Met à jour l'image
   char cheminComplet[80];
   sprintf(cheminComplet,"%s%s",REPERTOIRE_IMAGES,image);
@@ -162,25 +147,22 @@ void WindowClient::setImage(const char* image)
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-int WindowClient::isNouveauClientChecked()
-{
+int WindowClient::isNouveauClientChecked(){
   if (ui->checkBoxNouveauClient->isChecked()) return 1;
   return 0;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::setArticle(const char* intitule,float prix,int stock,const char* image)
-{
+void WindowClient::setArticle(const char* intitule,float prix,int stock,const char* image){
   ui->lineEditArticle->setText(intitule);
-  if (prix >= 0.0)
-  {
+  if (prix >= 0.0){
     char Prix[20];
     sprintf(Prix,"%.2f",prix);
     ui->lineEditPrixUnitaire->setText(Prix);
   }
   else ui->lineEditPrixUnitaire->clear();
-  if (stock >= 0)
-  {
+
+  if (stock >= 0){
     char Stock[20];
     sprintf(Stock,"%d",stock);
     ui->lineEditStock->setText(Stock);
@@ -190,16 +172,13 @@ void WindowClient::setArticle(const char* intitule,float prix,int stock,const ch
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-int WindowClient::getQuantite()
-{
+int WindowClient::getQuantite(){
   return ui->spinBoxQuantite->value();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::setTotal(float total)
-{
-  if (total >= 0.0)
-  {
+void WindowClient::setTotal(float total){
+  if (total >= 0.0){
     char Total[20];
     sprintf(Total,"%.2f",total);
     ui->lineEditTotal->setText(Total);
@@ -208,8 +187,7 @@ void WindowClient::setTotal(float total)
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::loginOK()
-{
+void WindowClient::loginOK(){
   ui->pushButtonLogin->setEnabled(false);
   ui->pushButtonLogout->setEnabled(true);
   ui->lineEditNom->setReadOnly(true);
@@ -226,8 +204,7 @@ void WindowClient::loginOK()
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::logoutOK()
-{
+void WindowClient::logoutOK(){
   ui->pushButtonLogin->setEnabled(true);
   ui->pushButtonLogout->setEnabled(false);
   ui->lineEditNom->setReadOnly(false);
@@ -256,8 +233,7 @@ void WindowClient::logoutOK()
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///// Fonctions utiles Table du panier (ne pas modifier) /////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::ajouteArticleTablePanier(const char* article,float prix,int quantite)
-{
+void WindowClient::ajouteArticleTablePanier(const char* article,float prix,int quantite){
   char Prix[20],Quantite[20];
 
   sprintf(Prix,"%.2f",prix);
@@ -289,14 +265,12 @@ void WindowClient::ajouteArticleTablePanier(const char* article,float prix,int q
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::videTablePanier()
-{
+void WindowClient::videTablePanier(){
   ui->tableWidgetPanier->setRowCount(0);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-int WindowClient::getIndiceArticleSelectionne()
-{
+int WindowClient::getIndiceArticleSelectionne(){
   QModelIndexList liste = ui->tableWidgetPanier->selectionModel()->selectedRows();
   if (liste.size() == 0) return -1;
   QModelIndex index = liste.at(0);
@@ -307,22 +281,19 @@ int WindowClient::getIndiceArticleSelectionne()
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///// Fonctions permettant d'afficher des boites de dialogue (ne pas modifier ////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::dialogueMessage(const char* titre,const char* message)
-{
+void WindowClient::dialogueMessage(const char* titre,const char* message){
   QMessageBox::information(this,titre,message);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::dialogueErreur(const char* titre,const char* message)
-{
+void WindowClient::dialogueErreur(const char* titre,const char* message){
   QMessageBox::critical(this,titre,message);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////// CLIC SUR LA CROIX DE LA FENETRE /////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::closeEvent(QCloseEvent *event)
-{
+void WindowClient::closeEvent(QCloseEvent *event){
   // (étape 1)
   MESSAGE m;
   m.type = 1;
@@ -331,19 +302,13 @@ void WindowClient::closeEvent(QCloseEvent *event)
   // envoi d'un logout si logged
   if(logged){
     m.requete = LOGOUT;
-    if (msgsnd(idQ, &m, sizeof(MESSAGE) - sizeof(long), 0) == -1){
-      perror("Erreur de msgsnd");
-      exit(1);
-    }
+    if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
   }
 
   // Envoi d'une requete de deconnexion au serveur
 
   m.requete = DECONNECT;
-  if (msgsnd(idQ, &m, sizeof(MESSAGE) - sizeof(long), 0) == -1){
-    perror("Erreur de msgsnd");
-    exit(1);
-  }
+  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
 
   exit(0);
 }
@@ -351,8 +316,7 @@ void WindowClient::closeEvent(QCloseEvent *event)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///// Fonctions clics sur les boutons ////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::on_pushButtonLogin_clicked()
-{
+void WindowClient::on_pushButtonLogin_clicked(){
   // Envoi d'une requete de login au serveur
   MESSAGE m;
   m.type = 1;
@@ -362,16 +326,12 @@ void WindowClient::on_pushButtonLogin_clicked()
   strcpy(m.data2, getNom());
   strcpy(m.data3, getMotDePasse());
 
-  if (msgsnd(idQ, &m, sizeof(MESSAGE) - sizeof(long), 0) == -1){
-    perror("Erreur de msgsnd");
-    exit(1);
-  }
+  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
 
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::on_pushButtonLogout_clicked()
-{
+void WindowClient::on_pushButtonLogout_clicked(){
   MESSAGE m;
   m.type = 1;
   m.expediteur = getpid();
@@ -380,39 +340,46 @@ void WindowClient::on_pushButtonLogout_clicked()
 
     // Envoi d'une requete de logout au serveur
   m.requete = LOGOUT;
-  if (msgsnd(idQ, &m, sizeof(MESSAGE) - sizeof(long), 0) == -1){
-    perror("Erreur de msgsnd");
-    exit(1);
-  }
+  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
 
   logged = 0;
   w->logoutOK();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::on_pushButtonSuivant_clicked()
-{
-    // TO DO (étape 3)
+void WindowClient::on_pushButtonSuivant_clicked(){
+    // (étape 3)
     // Envoi d'une requete CONSULT au serveur
+    MESSAGE m;
+    m.type = 1;
+    m.requete = CONSULT;
+    m.expediteur = getpid();
+    m.data1 = articleEnCours.id + 1;
+
+    if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::on_pushButtonPrecedent_clicked()
-{
-    // TO DO (étape 3)
+void WindowClient::on_pushButtonPrecedent_clicked(){
+    // (étape 3)
     // Envoi d'une requete CONSULT au serveur
+    MESSAGE m;
+    m.type = 1;
+    m.requete = CONSULT;
+    m.expediteur = getpid();
+    m.data1 = articleEnCours.id - 1;
+
+    if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::on_pushButtonAcheter_clicked()
-{
+void WindowClient::on_pushButtonAcheter_clicked(){
     // TO DO (étape 5)
     // Envoi d'une requete ACHAT au serveur
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::on_pushButtonSupprimer_clicked()
-{
+void WindowClient::on_pushButtonSupprimer_clicked(){
   // TO DO (étape 6)
   // Envoi d'une requete CANCEL au serveur
 
@@ -425,8 +392,7 @@ void WindowClient::on_pushButtonSupprimer_clicked()
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::on_pushButtonViderPanier_clicked()
-{
+void WindowClient::on_pushButtonViderPanier_clicked(){
   // TO DO (étape 6)
   // Envoi d'une requete CANCEL_ALL au serveur
 
@@ -439,8 +405,7 @@ void WindowClient::on_pushButtonViderPanier_clicked()
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void WindowClient::on_pushButtonPayer_clicked()
-{
+void WindowClient::on_pushButtonPayer_clicked(){
   // TO DO (étape 7)
   // Envoi d'une requete PAYER au serveur
 
@@ -459,8 +424,7 @@ void WindowClient::on_pushButtonPayer_clicked()
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///// Handlers de signaux ////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void handlerSIGUSR1(int sig)
-{
+void handlerSIGUSR1(int sig){
   MESSAGE m;
 
   if (msgrcv(idQ,&m,sizeof(MESSAGE)-sizeof(long),getpid(),0) != -1)  // !!! a modifier en temps voulu !!!
@@ -478,14 +442,18 @@ void handlerSIGUSR1(int sig)
                     m.requete = CONSULT;
                     m.data1 = 1;
 
-                    if (msgsnd(idQ, &m, sizeof(MESSAGE) - sizeof(long), 0) == -1){
-                      perror("Erreur de msgsnd");
-                      exit(1);
-                    }
+                    if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
                   }
                   break;
 
-      case CONSULT : // TO DO (étape 3)
+      case CONSULT : // (étape 3)
+      
+                  articleEnCours.id = m.data1;
+                  strcpy(articleEnCours.intitule, m.data2);
+                  articleEnCours.stock = atoi(m.data3);
+                  strcpy(articleEnCours.image, m.data4);
+                  articleEnCours.prix = m.data5;
+                  w->setArticle(articleEnCours.intitule, articleEnCours.prix, articleEnCours.stock, articleEnCours.image);
                   break;
 
       case ACHAT : // TO DO (étape 5)
@@ -507,16 +475,20 @@ void handlerSIGUSR1(int sig)
 }
 
 void handlerSIGINT(int sig){
-  if(logged){}
+  
   MESSAGE m;
   m.type = 1;
   m.expediteur = getpid();
-  m.requete = DECONNECT;
 
-  if(msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1){
-    perror("Erreur de msgsnd");
-    exit(1);
+  //LOGOUT si client logged
+  if (logged){
+    m.requete = LOGOUT;
+    if(msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
   }
+
+  //Déconnexion au serveur
+  m.requete = DECONNECT;
+  if(msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
 
   exit(0);
 }
