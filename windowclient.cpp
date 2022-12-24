@@ -48,7 +48,7 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
   // Recuperation de l'identifiant de la file de messages
   fprintf(stderr,"(CLIENT %d) Recuperation de l'id de la file de messages\n",getpid());
 
-  if ((idQ = msgget(CLE, 0)) == -1){perror("Erreur de msgget");exit(1);}
+  if ((idQ = msgget(CLE, 0)) == -1){perror("(CLIENT) Erreur de msgget");exit(1);}
 
   // Recuperation de l'identifiant de la mémoire partagée
   //fprintf(stderr,"(CLIENT %d) Recuperation de l'id de la mémoire partagée\n",getpid());
@@ -64,6 +64,7 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
   A.sa_handler = handlerSIGUSR1;
   A.sa_flags = 0;
   sigemptyset(&A.sa_mask);
+  sigaddset(&A.sa_mask, SIGUSR1);
   sigaction(SIGUSR1, &A, NULL);
 
   struct sigaction B;
@@ -78,7 +79,7 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
   m.expediteur = getpid();
   m.requete = CONNECT;
 
-  if(msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1){perror("Erreur de msgsnd");exit(1);}
+  if(msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
 
   // Exemples à supprimer
   // setPublicite("Promotions sur les concombres !!!");
@@ -302,13 +303,13 @@ void WindowClient::closeEvent(QCloseEvent *event){
   // envoi d'un logout si logged
   if(logged){
     m.requete = LOGOUT;
-    if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
+    if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
   }
 
   // Envoi d'une requete de deconnexion au serveur
 
   m.requete = DECONNECT;
-  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
+  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
 
   exit(0);
 }
@@ -326,7 +327,7 @@ void WindowClient::on_pushButtonLogin_clicked(){
   strcpy(m.data2, getNom());
   strcpy(m.data3, getMotDePasse());
 
-  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
+  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
 
 }
 
@@ -340,7 +341,7 @@ void WindowClient::on_pushButtonLogout_clicked(){
 
     // Envoi d'une requete de logout au serveur
   m.requete = LOGOUT;
-  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
+  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
 
   logged = 0;
   w->logoutOK();
@@ -356,7 +357,7 @@ void WindowClient::on_pushButtonSuivant_clicked(){
     m.expediteur = getpid();
     m.data1 = articleEnCours.id + 1;
 
-    if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
+    if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -369,13 +370,21 @@ void WindowClient::on_pushButtonPrecedent_clicked(){
     m.expediteur = getpid();
     m.data1 = articleEnCours.id - 1;
 
-    if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
+    if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void WindowClient::on_pushButtonAcheter_clicked(){
-    // TO DO (étape 5)
-    // Envoi d'une requete ACHAT au serveur
+  // TO DO (étape 5)
+  // Envoi d'une requete ACHAT au serveur
+  MESSAGE m;
+  m.type = 1;
+  m.requete = ACHAT;
+  m.data1 = articleEnCours.id;
+  m.expediteur = getpid();
+  sprintf(m.data2, "%d", getQuantite());
+
+  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -432,44 +441,66 @@ void handlerSIGUSR1(int sig){
     switch(m.requete)
     {
       case LOGIN :
-                  if(m.data1){
-                    logged = 1;
-                    w->loginOK();
+                if(m.data1){
+                  logged = 1;
+                  w->loginOK();
 
-                    //Envoi de la requête automatique si LOGIN success
-                    m.type = 1;
-                    m.expediteur = getpid();
-                    m.requete = CONSULT;
-                    m.data1 = 1;
+                  //Envoi de la requête automatique si LOGIN success
+                  m.type = 1;
+                  m.expediteur = getpid();
+                  m.requete = CONSULT;
+                  m.data1 = 1;
 
-                    if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
-                  }
-                  break;
+                  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
+                }
+                break;
 
       case CONSULT : // (étape 3)
       
-                  articleEnCours.id = m.data1;
-                  strcpy(articleEnCours.intitule, m.data2);
-                  articleEnCours.stock = atoi(m.data3);
-                  strcpy(articleEnCours.image, m.data4);
-                  articleEnCours.prix = m.data5;
-                  w->setArticle(articleEnCours.intitule, articleEnCours.prix, articleEnCours.stock, articleEnCours.image);
-                  break;
+                articleEnCours.id = m.data1;
+                strcpy(articleEnCours.intitule, m.data2);
+                articleEnCours.stock = atoi(m.data3);
+                strcpy(articleEnCours.image, m.data4);
+                articleEnCours.prix = m.data5;
+                w->setArticle(articleEnCours.intitule, articleEnCours.prix, articleEnCours.stock, articleEnCours.image);
+                break;
 
-      case ACHAT : // TO DO (étape 5)
-                  break;
+      case ACHAT : // (étape 5)
+                //Affichage du résultat de la requête
+                if(atoi(m.data3) == 0)
+                  w->dialogueMessage("Erreur", "Stock insuffisant");
+                else{
+                  char str[96];
+                  sprintf(str, "%d unité(s) de %s achetée(s) avec succès",atoi(m.data3), m.data2);
+                  w->dialogueMessage("Achat réussi", str);
+                }
 
-        case CADDIE : // TO DO (étape 5)
-                  break;
+                //Envoi d'une requête pour mettre à jour le panier et vide temporairement le panier
+                m.type = 1;
+                m.requete = CADDIE;
+                m.expediteur = getpid();
+                w->videTablePanier();
+                totalCaddie = 0;
+                if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
 
-        case TIME_OUT : // TO DO (étape 6)
-                  break;
+                break;
 
-        case BUSY : // TO DO (étape 7)
-                  break;
+      case CADDIE : // (étape 5)
+                
+                fprintf(stderr,"Reception du panier\n");
+                w->ajouteArticleTablePanier(m.data2, m.data5, atoi(m.data3));
+                totalCaddie += atoi(m.data3) * m.data5;
+                w->setTotal(totalCaddie);
+                break;
 
-        default :
-                  break;
+      case TIME_OUT : // TO DO (étape 6)
+                break;
+
+      case BUSY : // TO DO (étape 7)
+                break;
+
+      default :
+                break;
     }
   }
 }
@@ -483,12 +514,12 @@ void handlerSIGINT(int sig){
   //LOGOUT si client logged
   if (logged){
     m.requete = LOGOUT;
-    if(msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
+    if(msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
   }
 
   //Déconnexion au serveur
   m.requete = DECONNECT;
-  if(msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
+  if(msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
 
   exit(0);
 }

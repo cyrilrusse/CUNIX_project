@@ -46,18 +46,20 @@ int main(int argc,char* argv[])
   MYSQL_RES  *resultat;
   MYSQL_ROW  Tuple;
   int ret;
-  while(1)
+  while(true)
   {
     // Lecture d'une requete sur le pipe
     ret = read(fdRpipe, &m, sizeof(MESSAGE));
-    if(!ret){
+    if(ret == 0){
       mysql_close(connexion);
       exit(0);
     }
+    else if(ret == -1)
+      continue;
 
     switch(m.requete)
     {
-      case CONSULT :  // TO DO
+      case CONSULT :  //
                       fprintf(stderr,"(ACCESBD %d) Requete CONSULT reçue de %d\n",getpid(),m.expediteur);
                       // Acces BD
                       sprintf(requete, "select * from UNIX_FINAL where id = '%d'", m.data1);
@@ -82,14 +84,40 @@ int main(int argc,char* argv[])
                       }
 
                       // Envoi de la reponse au bon caddie
-                      if (msgsnd(idQ, &reponse, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
+                      if (msgsnd(idQ, &reponse, taille_msg, 0) == -1){perror("(ACCESBD) Erreur de msgsnd");exit(1);}
                       break;
 
       case ACHAT :    // TO DO
                       fprintf(stderr,"(ACCESBD %d) Requete ACHAT reçue de %d\n",getpid(),m.expediteur);
                       // Acces BD
+                      sprintf(requete, "select * from UNIX_FINAL where id = '%d'", m.data1);
+                      mysql_query(connexion, requete);
+                      resultat = mysql_store_result(connexion);
+                      Tuple = mysql_fetch_row(resultat);
 
-                      // Finalisation et envoi de la reponse
+                      // Preparation de la reponse
+                      reponse.type = m.expediteur;
+                      reponse.requete = ACHAT;
+                      reponse.expediteur = getpid();
+                      reponse.data1 = atoi(Tuple[0]);
+                      strcpy(reponse.data2, Tuple[1]);
+                      
+                      //quantité ou 0 si pas assez de stock
+                      if(atoi(Tuple[3]) >= atoi(m.data2)){
+                        //Décremente dans la BD
+                        sprintf(requete, "update UNIX_FINAL set stock = stock - '%d' where id = '%d'", atoi(m.data2), m.data1);
+                        mysql_query(connexion, requete);
+                        strcpy(reponse.data3, m.data2);
+                      }
+                      else
+                        strcpy(reponse.data3, "0");
+
+                      strcpy(reponse.data4, Tuple[4]);
+                      reponse.data5 = atof(Tuple[2]);
+                      
+                      // Envoi de la reponse
+                      if (msgsnd(idQ, &reponse, taille_msg, 0) == -1){perror("(ACCESBD) Erreur de msgsnd");exit(1);}
+
                       break;
 
       case CANCEL :   // TO DO
