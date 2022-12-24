@@ -35,7 +35,6 @@ int main()
 {
   int index_tab;
   // Armement des signaux
-  // TO DO
 
   struct sigaction B;
   B.sa_handler = handlerSIGINT;
@@ -78,7 +77,15 @@ int main()
   afficheTab();
 
   // Creation du processus Publicite (étape 2)
-  // TO DO
+
+  if((idShm = shmget(CLE, 52, IPC_CREAT | IPC_EXCL | 0600)) == -1){perror("(SERVEUR) Erreur de shmget");exit(1);}
+  tab->pidPublicite = fork();
+  if(tab->pidPublicite == -1){perror("Erreur de fork");exit(1);}
+  else if(tab->pidPublicite == 0){
+    char str[10];
+    sprintf(str, "%d", idShm);
+    if(execl("./Publicite", "Publicite", str, NULL) == -1){perror("Erreur de execl");exit(1);}
+  }
 
   // Creation du processus AccesBD (étape 4)
   tab->pidAccesBD = fork();
@@ -87,7 +94,7 @@ int main()
     close(fdPipe[1]);
     char str[10];
     sprintf(str, "%d", fdPipe[0]);
-    if (execl("./AccesBD", "AccesBD", str, NULL) == -1){perror("Erreur de execl()");exit(1);}
+    if (execl("./AccesBD", "AccesBD", str, NULL) == -1){perror("Erreur de execl");exit(1);}
   }
 
   MESSAGE m;
@@ -200,8 +207,13 @@ int main()
               }
               break;
 
-      case UPDATE_PUB : // TO DO
-                      break;
+      case UPDATE_PUB : 
+              for(int i = 0; i<6; i++){
+                if(tab->connexions[i].pidFenetre != 0)
+                  kill(tab->connexions[i].pidFenetre, SIGUSR2);
+              }
+
+              break;
 
       case CONSULT :  
               fprintf(stderr,"(SERVEUR %d) Requete CONSULT reçue de %d\n",getpid(),m.expediteur);
@@ -270,13 +282,12 @@ void afficheTab()
 ////////////////////////////////////////////////////////////////////////////////////
 
 void handlerSIGINT(int sig){
-  if (msgctl(idQ, IPC_RMID, NULL) == -1){
-    perror("Erreur de msgctl");
-    exit(1);
-  }
+  if (msgctl(idQ, IPC_RMID, NULL) == -1){perror("Erreur de msgctl");}
 
-  close(fdPipe[1]);
-  close(fdPipe[0]);
+  if (shmctl(idShm, IPC_RMID, NULL) == -1){perror("Erreur de shmctl");}
+
+  if (close(fdPipe[1]) == -1){perror("Erreur de close");}
+  if (close(fdPipe[0]) == -1){perror("Erreur de close");}
 
   exit(0);
 }

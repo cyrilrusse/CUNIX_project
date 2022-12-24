@@ -17,8 +17,9 @@ int idQ, idShm;
 char *pShm;
 void handlerSIGUSR1(int sig);
 int fd;
+size_t taille_msg = sizeof(MESSAGE) - sizeof(long);
 
-int main()
+int main(int argc, char* argv[])
 {
   // Armement des signaux
   // TO DO
@@ -31,16 +32,17 @@ int main()
 
   // Recuperation de l'identifiant de la file de messages
   fprintf(stderr,"(PUBLICITE %d) Recuperation de l'id de la file de messages\n",getpid());
-  if ((idQ = msgget(CLE,0)) == -1)
-  {
+  if ((idQ = msgget(CLE,0)) == -1){
     perror("(PUBLICITE) Erreur de msgget");
     exit(1);
   }
 
   // Recuperation de l'identifiant de la mémoire partagée
-
+  idShm = atoi(argv[1]);
+  
   // Attachement à la mémoire partagée
-  pShm = (char*)malloc(52); // a supprimer et remplacer par ce qu'il faut
+  if((pShm = (char*)shmat(idShm, NULL, 0)) == (char*)-1){perror("Erreur de shmat");exit(1);}
+
 
   // Mise en place de la publicité en mémoire partagée
   char pub[51];
@@ -51,13 +53,23 @@ int main()
   int indDebut = 25 - strlen(pub)/2;
   for (int i=0 ; i<strlen(pub) ; i++) pShm[indDebut + i] = pub[i];
 
+  MESSAGE m;
   while(1)
   {
     // Envoi d'une requete UPDATE_PUB au serveur
+    m.type = 1;
+    m.requete = UPDATE_PUB;
+    m.expediteur = getpid();
+    if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
 
     sleep(1); 
 
     // Decallage vers la gauche
+    char tampon = pShm[0];
+    for(int i = 0; i<50; i++)
+      pShm[i] = pShm[i+1];
+
+    pShm[50] = tampon;
   }
 }
 

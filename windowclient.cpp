@@ -51,14 +51,14 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
   if ((idQ = msgget(CLE, 0)) == -1){perror("(CLIENT) Erreur de msgget");exit(1);}
 
   // Recuperation de l'identifiant de la mémoire partagée
-  //fprintf(stderr,"(CLIENT %d) Recuperation de l'id de la mémoire partagée\n",getpid());
-  // TO DO
+  fprintf(stderr,"(CLIENT %d) Recuperation de l'id de la mémoire partagée\n",getpid());
+  if((idShm = shmget(CLE, 0, 0)) == -1){perror("(CLIENT) Erreur de shmget");exit(1);}
+
 
   // Attachement à la mémoire partagée
-  // TO DO
+  if((pShm = (char*)shmat(idShm, NULL, SHM_RDONLY)) == (char*)-1){perror("(CLIENT) Erreur de shmat");exit(1);}
 
   // Armement des signaux
-  // TO DO
 
   struct sigaction A;
   A.sa_handler = handlerSIGUSR1;
@@ -72,6 +72,12 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
   B.sa_flags = 0;
   sigemptyset(&B.sa_mask);
   sigaction(SIGINT, &B, NULL);
+
+  struct sigaction C;
+  C.sa_handler = handlerSIGUSR2;
+  C.sa_flags = 0;
+  sigemptyset(&C.sa_mask);
+  sigaction(SIGUSR2, &C, NULL);
 
   // Envoi d'une requete de connexion au serveur
   MESSAGE m;
@@ -487,7 +493,7 @@ void handlerSIGUSR1(int sig){
 
       case CADDIE : // (étape 5)
                 
-                fprintf(stderr,"Reception du panier\n");
+                fprintf(stderr,"(CADDIE %d) Reception du panier\n", getpid());
                 w->ajouteArticleTablePanier(m.data2, m.data5, atoi(m.data3));
                 totalCaddie += atoi(m.data3) * m.data5;
                 w->setTotal(totalCaddie);
@@ -522,6 +528,10 @@ void handlerSIGINT(int sig){
   if(msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
 
   exit(0);
+}
+
+void handlerSIGUSR2(int sig){
+  w->setPublicite(pShm);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
