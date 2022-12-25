@@ -48,34 +48,31 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
   // Recuperation de l'identifiant de la file de messages
   fprintf(stderr,"(CLIENT %d) Recuperation de l'id de la file de messages\n",getpid());
 
-  if ((idQ = msgget(CLE, 0)) == -1){perror("(CLIENT) Erreur de msgget");exit(1);}
+  if ((idQ = msgget(CLE, 0)) == -1){perror("(CLIENT) Erreur de msgget");exit(EXIT_FAILURE);}
 
   // Recuperation de l'identifiant de la mémoire partagée
   fprintf(stderr,"(CLIENT %d) Recuperation de l'id de la mémoire partagée\n",getpid());
-  if((idShm = shmget(CLE, 0, 0)) == -1){perror("(CLIENT) Erreur de shmget");exit(1);}
+  if((idShm = shmget(CLE, 0, 0)) == -1){perror("(CLIENT) Erreur de shmget");exit(EXIT_FAILURE);}
 
 
   // Attachement à la mémoire partagée
-  if((pShm = (char*)shmat(idShm, NULL, SHM_RDONLY)) == (char*)-1){perror("(CLIENT) Erreur de shmat");exit(1);}
+  if((pShm = (char*)shmat(idShm, NULL, SHM_RDONLY)) == (char*)-1){perror("(CLIENT) Erreur de shmat");exit(EXIT_FAILURE);}
 
   // Armement des signaux
 
   struct sigaction A;
   A.sa_handler = handlerSIGUSR1;
-  A.sa_flags = 0;
   sigemptyset(&A.sa_mask);
   sigaddset(&A.sa_mask, SIGUSR1);
   sigaction(SIGUSR1, &A, NULL);
 
   struct sigaction B;
   B.sa_handler = handlerSIGINT;
-  B.sa_flags = 0;
   sigemptyset(&B.sa_mask);
   sigaction(SIGINT, &B, NULL);
 
   struct sigaction C;
   C.sa_handler = handlerSIGUSR2;
-  C.sa_flags = 0;
   sigemptyset(&C.sa_mask);
   sigaction(SIGUSR2, &C, NULL);
 
@@ -85,7 +82,7 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
   m.expediteur = getpid();
   m.requete = CONNECT;
 
-  if(msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
+  if(msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(EXIT_FAILURE);}
 
   // Exemples à supprimer
   // setPublicite("Promotions sur les concombres !!!");
@@ -309,15 +306,15 @@ void WindowClient::closeEvent(QCloseEvent *event){
   // envoi d'un logout si logged
   if(logged){
     m.requete = LOGOUT;
-    if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
+    if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(EXIT_FAILURE);}
   }
 
   // Envoi d'une requete de deconnexion au serveur
 
   m.requete = DECONNECT;
-  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
+  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(EXIT_FAILURE);}
 
-  exit(0);
+  exit(EXIT_SUCCESS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -333,7 +330,7 @@ void WindowClient::on_pushButtonLogin_clicked(){
   strcpy(m.data2, getNom());
   strcpy(m.data3, getMotDePasse());
 
-  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
+  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(EXIT_FAILURE);}
 
 }
 
@@ -347,7 +344,7 @@ void WindowClient::on_pushButtonLogout_clicked(){
 
     // Envoi d'une requete de logout au serveur
   m.requete = LOGOUT;
-  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
+  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(EXIT_FAILURE);}
 
   logged = 0;
   w->logoutOK();
@@ -363,7 +360,7 @@ void WindowClient::on_pushButtonSuivant_clicked(){
     m.expediteur = getpid();
     m.data1 = articleEnCours.id + 1;
 
-    if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
+    if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(EXIT_FAILURE);}
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -376,7 +373,7 @@ void WindowClient::on_pushButtonPrecedent_clicked(){
     m.expediteur = getpid();
     m.data1 = articleEnCours.id - 1;
 
-    if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
+    if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(EXIT_FAILURE);}
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -390,13 +387,22 @@ void WindowClient::on_pushButtonAcheter_clicked(){
   m.expediteur = getpid();
   sprintf(m.data2, "%d", getQuantite());
 
-  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
+  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(EXIT_FAILURE);}
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void WindowClient::on_pushButtonSupprimer_clicked(){
-  // TO DO (étape 6)
+  // (étape 6)
   // Envoi d'une requete CANCEL au serveur
+  MESSAGE m;
+  m.type = 1;
+  m.requete = CANCEL;
+  m.expediteur = getpid();
+  m.data1 = getIndiceArticleSelectionne();
+  if(m.data1 == -1)
+    return;
+
+  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(EXIT_FAILURE);}
 
   // Mise à jour du caddie
   w->videTablePanier();
@@ -404,6 +410,9 @@ void WindowClient::on_pushButtonSupprimer_clicked(){
   w->setTotal(-1.0);
 
   // Envoi requete CADDIE au serveur
+  m.requete = CADDIE;
+  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(EXIT_FAILURE);}
+
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -457,7 +466,7 @@ void handlerSIGUSR1(int sig){
                   m.requete = CONSULT;
                   m.data1 = 1;
 
-                  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
+                  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(EXIT_FAILURE);}
                 }
                 break;
 
@@ -487,7 +496,7 @@ void handlerSIGUSR1(int sig){
                 m.expediteur = getpid();
                 w->videTablePanier();
                 totalCaddie = 0;
-                if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
+                if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(EXIT_FAILURE);}
 
                 break;
 
@@ -520,14 +529,14 @@ void handlerSIGINT(int sig){
   //LOGOUT si client logged
   if (logged){
     m.requete = LOGOUT;
-    if(msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
+    if(msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(EXIT_FAILURE);}
   }
 
   //Déconnexion au serveur
   m.requete = DECONNECT;
-  if(msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(1);}
+  if(msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(EXIT_FAILURE);}
 
-  exit(0);
+  exit(EXIT_SUCCESS);
 }
 
 void handlerSIGUSR2(int sig){

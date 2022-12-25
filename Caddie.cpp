@@ -41,7 +41,7 @@ int main(int argc,char* argv[])
 
   // Recuperation de l'identifiant de la file de messages
   fprintf(stderr,"(CADDIE %d) Recuperation de l'id de la file de messages\n",getpid());
-  if ((idQ = msgget(CLE,0)) == -1){perror("(CADDIE) Erreur de msgget");exit(1);}
+  if ((idQ = msgget(CLE,0)) == -1){perror("(CADDIE) Erreur de msgget");exit(EXIT_FAILURE);}
 
   MESSAGE m;
   MESSAGE reponse;
@@ -54,10 +54,14 @@ int main(int argc,char* argv[])
   // Récupération descripteur écriture du pipe
   fdWpipe = atoi(argv[1]);
 
+
+  int indice;
+  char str[10];
+  
   while(true)
   {
     
-    if (msgrcv(idQ,&m,taille_msg,getpid(),0) == -1){perror("(CADDIE) Erreur de msgrcv");exit(1);}
+    if (msgrcv(idQ,&m,taille_msg,getpid(),0) == -1){perror("(CADDIE) Erreur de msgrcv");exit(EXIT_FAILURE);}
 
     switch(m.requete)
     {
@@ -69,35 +73,36 @@ int main(int argc,char* argv[])
       case LOGOUT :   
               fprintf(stderr,"(CADDIE %d) Requete LOGOUT reçue de %d\n",getpid(),m.expediteur);
               close(fdWpipe);
-              exit(0);
+              exit(EXIT_SUCCESS);
               break;
 
       case CONSULT :  
               fprintf(stderr,"(CADDIE %d) Requete CONSULT reçue de %d\n",getpid(),m.expediteur);
               m.expediteur = getpid();
               //Transfert de la requête à AccesBD via le pipe
-              if(write(fdWpipe, &m, sizeof(MESSAGE)) != sizeof(MESSAGE)){perror("(CADDIE) Erreur de write");exit(1);}
+              if(write(fdWpipe, &m, sizeof(MESSAGE)) != sizeof(MESSAGE)){perror("(CADDIE) Erreur de write");exit(EXIT_FAILURE);}
               //Attente de la réponse
-              if (msgrcv(idQ,&m,taille_msg,getpid(),0) == -1){perror("(CADDIE) Erreur de msgrcv");exit(1);}
+              if (msgrcv(idQ,&m,taille_msg,getpid(),0) == -1){perror("(CADDIE) Erreur de msgrcv");exit(EXIT_FAILURE);}
               if(m.data1 == -1)//Article non trouvé => pas de réponse
                 break;
 
-              //envoie de l'article au Client
+              //Envoi de l'article au Client
               m.type = pidClient;
               m.expediteur = getpid();
               fprintf(stderr, "(CADDIE %d)Envoie de la réponse au Client\n", getpid());
-              if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CADDIE) Erreur de msgsnd");exit(1);}
+              if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CADDIE) Erreur de msgsnd");exit(EXIT_FAILURE);}
               kill(pidClient, SIGUSR1);
               break;
 
-      case ACHAT :    // TO DO
+      case ACHAT :
               fprintf(stderr,"(CADDIE %d) Requete ACHAT reçue de %d\n",getpid(),m.expediteur);
 
               // on transfert la requete à AccesBD
               m.expediteur = getpid();
-              if(write(fdWpipe, &m, sizeof(MESSAGE)) != sizeof(MESSAGE)){perror("(CADDIE) Erreur de write");exit(1);}
+              if(write(fdWpipe, &m, sizeof(MESSAGE)) != sizeof(MESSAGE)){perror("(CADDIE) Erreur de write");exit(EXIT_FAILURE);}
+              
               // on attend la réponse venant de AccesBD
-              if (msgrcv(idQ,&m,taille_msg,getpid(),0) == -1){perror("(CADDIE) Erreur de msgrcv");exit(1);}
+              if (msgrcv(idQ,&m,taille_msg,getpid(),0) == -1){perror("(CADDIE) Erreur de msgrcv");exit(EXIT_FAILURE);}
               
               // Ajout au vecteur d'articles
               if(atoi(m.data3) != 0){
@@ -122,11 +127,11 @@ int main(int argc,char* argv[])
               // Envoi de la reponse au client
               m.type = pidClient;
               m.expediteur = getpid();
-              if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CADDIE) Erreur de msgsnd");exit(1);}
+              if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CADDIE) Erreur de msgsnd");exit(EXIT_FAILURE);}
               kill(pidClient, SIGUSR1);
               break;
 
-      case CADDIE :   // TO DO
+      case CADDIE :
               fprintf(stderr,"(CADDIE %d) Requete CADDIE reçue de %d\n",getpid(),m.expediteur);
               
               reponse.type = pidClient;
@@ -142,18 +147,33 @@ int main(int argc,char* argv[])
                 strcpy(reponse.data4, articles[i].image);
                 reponse.data5 = articles[i].prix;
 
-                if (msgsnd(idQ, &reponse, taille_msg, 0) == -1){perror("(CADDIE) Erreur de msgsnd");exit(1);}
+                if (msgsnd(idQ, &reponse, taille_msg, 0) == -1){perror("(CADDIE) Erreur de msgsnd");exit(EXIT_FAILURE);}
                 kill(pidClient, SIGUSR1);
+                usleep(100);
               }
               
               break;
 
-      case CANCEL :   // TO DO
+      case CANCEL :
               fprintf(stderr,"(CADDIE %d) Requete CANCEL reçue de %d\n",getpid(),m.expediteur);
-
+              indice = m.data1;
+              
               // on transmet la requete à AccesBD
+              m.expediteur = getpid();
+              m.data1 = articles[indice].id;
+              sprintf(str, "%d", articles[indice].stock);
+              strcpy(m.data2, str);
+              if(write(fdWpipe, &m, sizeof(MESSAGE)) != sizeof(MESSAGE)){perror("(CADDIE) Erreur de write");exit(EXIT_FAILURE);}
 
               // Suppression de l'aricle du panier
+              if((indice+1) != nbArticles){
+                articles[indice].id = articles[nbArticles-1].id;
+                strcpy(articles[indice].intitule, articles[nbArticles-1].intitule);
+                articles[indice].prix = articles[nbArticles-1].prix;
+                articles[indice].stock = articles[nbArticles-1].stock;
+                strcpy(articles[indice].image, articles[nbArticles-1].image);
+              }
+              nbArticles--;
               break;
 
       case CANCEL_ALL : // TO DO
@@ -182,5 +202,5 @@ void handlerSIGALRM(int sig)
 
   // Envoi d'un Time Out au client (s'il existe toujours)
          
-  exit(0);
+  exit(EXIT_SUCCESS);
 }

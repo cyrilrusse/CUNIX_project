@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <signal.h>
+#include <errno.h>
 #include "protocole.h" // contient la cle et la structure d'un message
 
 int idQ, idShm;
@@ -34,14 +35,14 @@ int main(int argc, char* argv[])
   fprintf(stderr,"(PUBLICITE %d) Recuperation de l'id de la file de messages\n",getpid());
   if ((idQ = msgget(CLE,0)) == -1){
     perror("(PUBLICITE) Erreur de msgget");
-    exit(1);
+    exit(EXIT_FAILURE);
   }
 
   // Recuperation de l'identifiant de la mémoire partagée
   idShm = atoi(argv[1]);
   
   // Attachement à la mémoire partagée
-  if((pShm = (char*)shmat(idShm, NULL, 0)) == (char*)-1){perror("Erreur de shmat");exit(1);}
+  if((pShm = (char*)shmat(idShm, NULL, 0)) == (char*)-1){perror("Erreur de shmat");exit(EXIT_FAILURE);}
 
 
   // Mise en place de la publicité en mémoire partagée
@@ -60,7 +61,16 @@ int main(int argc, char* argv[])
     m.type = 1;
     m.requete = UPDATE_PUB;
     m.expediteur = getpid();
-    if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
+
+    // On part du principe que si l'erreur de msgsnd est lié à la suppression de la file 
+    // de message, le serveur doit s'être terminé et l'a supprimé, donc on termine également publicite
+    if (msgsnd(idQ, &m, taille_msg, 0) == -1){
+      if(errno == EINVAL)
+        exit(EXIT_SUCCESS); 
+        
+      perror("(PUBLICITE) Erreur de msgsnd");
+      exit(EXIT_FAILURE);
+    }
 
     sleep(1); 
 

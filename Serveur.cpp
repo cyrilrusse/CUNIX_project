@@ -52,12 +52,12 @@ int main()
   // Creation de la file de message
   fprintf(stderr,"(SERVEUR %d) Creation de la file de messages\n",getpid());
   // CLE definie dans protocole.h
-  if ((idQ = msgget(CLE,IPC_CREAT | IPC_EXCL | 0600)) == -1){perror("(SERVEUR) Erreur de msgget");exit(1);}
+  if ((idQ = msgget(CLE,IPC_CREAT | IPC_EXCL | 0600)) == -1){perror("(SERVEUR) Erreur de msgget");exit(EXIT_FAILURE);}
 
   // TO BE CONTINUED
 
   // Creation du pipe
-  if(pipe(fdPipe)){perror("Erreur de pipe");exit(1);}
+  if(pipe(fdPipe)){perror("Erreur de pipe");exit(EXIT_FAILURE);}
   int flags = fcntl(fdPipe[0], F_GETFL);
   flags |= O_NONBLOCK;
   fcntl(fdPipe[0], F_SETFL, flags);
@@ -78,23 +78,23 @@ int main()
 
   // Creation du processus Publicite (étape 2)
 
-  if((idShm = shmget(CLE, 52, IPC_CREAT | IPC_EXCL | 0600)) == -1){perror("(SERVEUR) Erreur de shmget");exit(1);}
+  if((idShm = shmget(CLE, 52, IPC_CREAT | IPC_EXCL | 0600)) == -1){perror("(SERVEUR) Erreur de shmget");exit(EXIT_FAILURE);}
   tab->pidPublicite = fork();
-  if(tab->pidPublicite == -1){perror("Erreur de fork");exit(1);}
+  if(tab->pidPublicite == -1){perror("Erreur de fork");exit(EXIT_FAILURE);}
   else if(tab->pidPublicite == 0){
     char str[10];
     sprintf(str, "%d", idShm);
-    if(execl("./Publicite", "Publicite", str, NULL) == -1){perror("Erreur de execl");exit(1);}
+    if(execl("./Publicite", "Publicite", str, NULL) == -1){perror("Erreur de execl");exit(EXIT_FAILURE);}
   }
 
   // Creation du processus AccesBD (étape 4)
   tab->pidAccesBD = fork();
-  if(tab->pidAccesBD == -1){perror("Erreur de fork");exit(1);}
+  if(tab->pidAccesBD == -1){perror("Erreur de fork");exit(EXIT_FAILURE);}
   else if(tab->pidAccesBD == 0){
     close(fdPipe[1]);
     char str[10];
     sprintf(str, "%d", fdPipe[0]);
-    if (execl("./AccesBD", "AccesBD", str, NULL) == -1){perror("Erreur de execl");exit(1);}
+    if (execl("./AccesBD", "AccesBD", str, NULL) == -1){perror("Erreur de execl");exit(EXIT_FAILURE);}
   }
 
   MESSAGE m;
@@ -108,7 +108,7 @@ int main()
     if (msgrcv(idQ, &m, sizeof(MESSAGE)-sizeof(long), 1, 0) == -1){
       perror("(SERVEUR) Erreur de msgrcv");
       msgctl(idQ, IPC_RMID, NULL);
-      exit(1);
+      exit(EXIT_FAILURE);
     }
 
     switch(m.requete)
@@ -174,13 +174,13 @@ int main()
                   close(fdPipe[0]);
                   char str_fdpipe[10];
                   sprintf(str_fdpipe, "%d", fdPipe[1]);
-                  if (execl("./Caddie", "Caddie", str_fdpipe, NULL) == -1){perror("Erreur de execl()");exit(1);}
+                  if (execl("./Caddie", "Caddie", str_fdpipe, NULL) == -1){perror("Erreur de execl()");exit(EXIT_FAILURE);}
                 }
                 else{//Serveur -> stock pid Caddie
                   tab->connexions[index_tab].pidCaddie = pid_caddie;
                   // Retransmet la requête LOGIN au nouveau Caddie
                   m.type = pid_caddie;
-                  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
+                  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
                 }
               }
 
@@ -189,7 +189,7 @@ int main()
               reponse.expediteur = getpid();
               reponse.requete = LOGIN;
 
-              if (msgsnd(idQ, &reponse, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
+              if (msgsnd(idQ, &reponse, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
               kill(m.expediteur, SIGUSR1);
               break;
 
@@ -201,7 +201,7 @@ int main()
                 m.type = tab->connexions[index_tab].pidCaddie;
                 if (msgsnd(idQ, &m, taille_msg, 0) == -1){
                   perror("Erreur de msgsnd");
-                  exit(1);
+                  exit(EXIT_FAILURE);
                 }
                 tab->connexions[index_tab].pidCaddie = 0;
               }
@@ -223,7 +223,7 @@ int main()
               if(index_tab != -1){
                 m.type = tab->connexions[index_tab].pidCaddie;
 
-                if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
+                if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
               }
               break;
 
@@ -233,7 +233,7 @@ int main()
               index_tab = rechercheTableConnexion(m.expediteur);
               if(index_tab != -1){
                 m.type = tab->connexions[index_tab].pidCaddie;
-                if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
+                if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
               }
               break;
 
@@ -242,13 +242,18 @@ int main()
               index_tab = rechercheTableConnexion(m.expediteur);
               if(index_tab != -1){
                 m.type = tab->connexions[index_tab].pidCaddie;
-                if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(1);}
+                if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
               }
 
               break;
 
-      case CANCEL :  // TO DO
+      case CANCEL :
               fprintf(stderr,"(SERVEUR %d) Requete CANCEL reçue de %d\n",getpid(),m.expediteur);
+              index_tab = rechercheTableConnexion(m.expediteur);
+              if(index_tab != -1){
+                m.type = tab->connexions[index_tab].pidCaddie;
+                if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
+              }       
               break;
 
       case CANCEL_ALL : // TO DO
@@ -282,14 +287,17 @@ void afficheTab()
 ////////////////////////////////////////////////////////////////////////////////////
 
 void handlerSIGINT(int sig){
+  // Supprime la file de messages
   if (msgctl(idQ, IPC_RMID, NULL) == -1){perror("Erreur de msgctl");}
 
+  // Supprime la mémoire partagée
   if (shmctl(idShm, IPC_RMID, NULL) == -1){perror("Erreur de shmctl");}
 
-  if (close(fdPipe[1]) == -1){perror("Erreur de close");}
-  if (close(fdPipe[0]) == -1){perror("Erreur de close");}
+  // Ferme les descripteurs du pipe sur le serveur
+  close(fdPipe[0]);
+  close(fdPipe[1]);
 
-  exit(0);
+  exit(EXIT_SUCCESS);
 }
 
 void handlerSIGCHLD(int sig){
