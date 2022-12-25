@@ -57,7 +57,7 @@ int main(int argc,char* argv[])
 
   int indice;
   char str[10];
-  
+
   while(true)
   {
     
@@ -176,18 +176,27 @@ int main(int argc,char* argv[])
               nbArticles--;
               break;
 
-      case CANCEL_ALL : // TO DO
+      case CANCEL_ALL :
               fprintf(stderr,"(CADDIE %d) Requete CANCEL_ALL reçue de %d\n",getpid(),m.expediteur);
-
+              m.requete = CANCEL;
+              m.expediteur = getpid();
               // On envoie a AccesBD autant de requeres CANCEL qu'il y a d'articles dans le panier
+              for(int i=0; i<nbArticles; i++){
+                m.data1 = articles[i].id;
+                sprintf(str, "%d", articles[i].stock);
+                strcpy(m.data2, str);
+                if(write(fdWpipe, &m, sizeof(MESSAGE)) != sizeof(MESSAGE)){perror("(CADDIE) Erreur de write");exit(EXIT_FAILURE);}
+              }
 
               // On vide le panier
+              nbArticles = 0;
               break;
 
       case PAYER :    // TO DO
               fprintf(stderr,"(CADDIE %d) Requete PAYER reçue de %d\n",getpid(),m.expediteur);
 
               // On vide le panier
+              nbArticles = 0;
               break;
     }
   }

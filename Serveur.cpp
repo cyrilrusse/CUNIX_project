@@ -256,8 +256,13 @@ int main()
               }       
               break;
 
-      case CANCEL_ALL : // TO DO
+      case CANCEL_ALL :
               fprintf(stderr,"(SERVEUR %d) Requete CANCEL_ALL reçue de %d\n",getpid(),m.expediteur);
+              index_tab = rechercheTableConnexion(m.expediteur);
+              if(index_tab != -1){
+                m.type = tab->connexions[index_tab].pidCaddie;
+                if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
+              }       
               break;
 
       case PAYER : // TO DO

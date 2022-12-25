@@ -419,6 +419,12 @@ void WindowClient::on_pushButtonSupprimer_clicked(){
 void WindowClient::on_pushButtonViderPanier_clicked(){
   // TO DO (étape 6)
   // Envoi d'une requete CANCEL_ALL au serveur
+  MESSAGE m;
+  m.type = 1;
+  m.requete = CANCEL_ALL;
+  m.expediteur = getpid();
+
+  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(EXIT_FAILURE);}
 
   // Mise à jour du caddie
   w->videTablePanier();
@@ -426,6 +432,9 @@ void WindowClient::on_pushButtonViderPanier_clicked(){
   w->setTotal(-1.0);
 
   // Envoi requete CADDIE au serveur
+  m.requete = CADDIE;
+  if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(EXIT_FAILURE);}
+
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
