@@ -459,7 +459,6 @@ void WindowClient::on_pushButtonPayer_clicked(){
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void handlerSIGUSR1(int sig){
   MESSAGE m;
-
   if (msgrcv(idQ,&m,taille_msg,getpid(),0) != -1)  // !!! a modifier en temps voulu !!!
   {
     switch(m.requete)
@@ -521,7 +520,10 @@ void handlerSIGUSR1(int sig){
 
                 break;
 
-      case TIME_OUT : // TO DO (étape 6)
+      case TIME_OUT : //(étape 6)
+                logged = 0;
+                w->logoutOK();
+                w->dialogueErreur("Erreur", "Vous avez été déconnecté pour cause d'inactivité");
                 break;
 
       case BUSY : // TO DO (étape 7)

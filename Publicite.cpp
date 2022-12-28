@@ -22,6 +22,7 @@ size_t taille_msg = sizeof(MESSAGE) - sizeof(long);
 
 int main(int argc, char* argv[])
 {
+  return 0;
   // Armement des signaux
   // TO DO
 

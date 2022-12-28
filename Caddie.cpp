@@ -33,11 +33,15 @@ int main(int argc,char* argv[])
 {
   // Masquage de SIGINT
   sigset_t mask;
+  sigemptyset(&mask);
   sigaddset(&mask,SIGINT);
   sigprocmask(SIG_SETMASK,&mask,NULL);
 
   // Armement des signaux
-  // TO DO
+  struct sigaction A;
+  A.sa_handler = handlerSIGALRM;
+  sigemptyset(&A.sa_mask);
+  sigaction(SIGALRM, &A, NULL);
 
   // Recuperation de l'identifiant de la file de messages
   fprintf(stderr,"(CADDIE %d) Recuperation de l'id de la file de messages\n",getpid());
@@ -60,7 +64,7 @@ int main(int argc,char* argv[])
 
   while(true)
   {
-    
+    alarm(60);
     if (msgrcv(idQ,&m,taille_msg,getpid(),0) == -1){perror("(CADDIE) Erreur de msgrcv");exit(EXIT_FAILURE);}
 
     switch(m.requete)
@@ -204,11 +208,27 @@ int main(int argc,char* argv[])
 void handlerSIGALRM(int sig)
 {
   fprintf(stderr,"(CADDIE %d) Time Out !!!\n",getpid());
-
+  MESSAGE m;
+  char str[10];
   // Annulation du caddie et mise à jour de la BD
   // On envoie a AccesBD autant de requetes CANCEL qu'il y a d'articles dans le panier
+  m.requete = CANCEL;
+  m.expediteur = getpid();
+  // On envoie a AccesBD autant de requeres CANCEL qu'il y a d'articles dans le panier
+  for(int i=0; i<nbArticles; i++){
+    m.data1 = articles[i].id;
+    sprintf(str, "%d", articles[i].stock);
+    strcpy(m.data2, str);
+    if(write(fdWpipe, &m, sizeof(MESSAGE)) != sizeof(MESSAGE)){perror("(CADDIE) Erreur de write");exit(EXIT_FAILURE);}
+  }
 
   // Envoi d'un Time Out au client (s'il existe toujours)
+  if(!kill(pidClient, SIGUSR1)){
+    m.type = pidClient;
+    m.requete = TIME_OUT;
+    m.expediteur = getpid();
+    if(msgsnd(idQ, &m, taille_msg, 0) == -1){perror("(CADDIE) Erreur de msgsnd");exit(EXIT_FAILURE);}
+  }
          
   exit(EXIT_SUCCESS);
 }
