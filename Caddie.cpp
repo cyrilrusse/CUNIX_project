@@ -138,7 +138,6 @@ int main(int argc,char* argv[])
               reponse.requete = CADDIE;
               reponse.expediteur = getpid();
               char str[10];
-
               for(int i=0; i<nbArticles; i++){
                 reponse.data1 = articles[i].id;
                 strcpy(reponse.data2, articles[i].intitule);
@@ -148,8 +147,8 @@ int main(int argc,char* argv[])
                 reponse.data5 = articles[i].prix;
 
                 if (msgsnd(idQ, &reponse, taille_msg, 0) == -1){perror("(CADDIE) Erreur de msgsnd");exit(EXIT_FAILURE);}
-                kill(pidClient, SIGUSR1);
-                usleep(100);
+                if (kill(pidClient, SIGUSR1) == -1){perror("(CADDIE) Erreur de kill");exit(EXIT_FAILURE);}
+
               }
               
               break;
@@ -192,7 +191,7 @@ int main(int argc,char* argv[])
               nbArticles = 0;
               break;
 
-      case PAYER :    // TO DO
+      case PAYER :
               fprintf(stderr,"(CADDIE %d) Requete PAYER reçue de %d\n",getpid(),m.expediteur);
 
               // On vide le panier

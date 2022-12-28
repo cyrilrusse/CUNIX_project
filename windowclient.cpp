@@ -45,6 +45,7 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
   ui->tableWidgetPanier->verticalHeader()->setVisible(false);
   ui->tableWidgetPanier->horizontalHeader()->setStyleSheet("background-color: lightyellow");
 
+  
   // Recuperation de l'identifiant de la file de messages
   fprintf(stderr,"(CLIENT %d) Recuperation de l'id de la file de messages\n",getpid());
 
@@ -59,7 +60,6 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
   if((pShm = (char*)shmat(idShm, NULL, SHM_RDONLY)) == (char*)-1){perror("(CLIENT) Erreur de shmat");exit(EXIT_FAILURE);}
 
   // Armement des signaux
-
   struct sigaction A;
   A.sa_handler = handlerSIGUSR1;
   sigemptyset(&A.sa_mask);
@@ -439,7 +439,7 @@ void WindowClient::on_pushButtonViderPanier_clicked(){
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void WindowClient::on_pushButtonPayer_clicked(){
-  // TO DO (étape 7)
+  // (étape 6)
   // Envoi d'une requete PAYER au serveur
 
   char tmp[100];
@@ -460,7 +460,7 @@ void WindowClient::on_pushButtonPayer_clicked(){
 void handlerSIGUSR1(int sig){
   MESSAGE m;
 
-  if (msgrcv(idQ,&m,sizeof(MESSAGE)-sizeof(long),getpid(),0) != -1)  // !!! a modifier en temps voulu !!!
+  if (msgrcv(idQ,&m,taille_msg,getpid(),0) != -1)  // !!! a modifier en temps voulu !!!
   {
     switch(m.requete)
     {
@@ -510,11 +510,15 @@ void handlerSIGUSR1(int sig){
                 break;
 
       case CADDIE : // (étape 5)
-                
-                fprintf(stderr,"(CADDIE %d) Reception du panier\n", getpid());
-                w->ajouteArticleTablePanier(m.data2, m.data5, atoi(m.data3));
-                totalCaddie += atoi(m.data3) * m.data5;
-                w->setTotal(totalCaddie);
+                  while(true){
+                    w->ajouteArticleTablePanier(m.data2, m.data5, atoi(m.data3));
+                    totalCaddie += atoi(m.data3) * m.data5;
+                    w->setTotal(totalCaddie);
+
+                    if(msgrcv(idQ, &m, taille_msg, getpid(), IPC_NOWAIT) == -1)
+                      break;
+                  }
+
                 break;
 
       case TIME_OUT : // TO DO (étape 6)
