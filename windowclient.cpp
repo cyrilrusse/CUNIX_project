@@ -62,18 +62,21 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
   // Armement des signaux
   struct sigaction A;
   A.sa_handler = handlerSIGUSR1;
-  sigemptyset(&A.sa_mask);
-  sigaddset(&A.sa_mask, SIGUSR1);
+  // sigemptyset(&A.sa_mask);
+  // sigaddset(&A.sa_mask, SIGUSR1);
+  A.sa_flags = 0;
   sigaction(SIGUSR1, &A, NULL);
 
   struct sigaction B;
   B.sa_handler = handlerSIGINT;
-  sigemptyset(&B.sa_mask);
+  B.sa_flags = 0;
+  // sigemptyset(&B.sa_mask);
   sigaction(SIGINT, &B, NULL);
 
   struct sigaction C;
   C.sa_handler = handlerSIGUSR2;
-  sigemptyset(&C.sa_mask);
+  C.sa_flags = 0;
+  // sigemptyset(&C.sa_mask);
   sigaction(SIGUSR2, &C, NULL);
 
   // Envoi d'une requete de connexion au serveur
@@ -83,15 +86,14 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
   m.requete = CONNECT;
 
   if(msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(EXIT_FAILURE);}
-
+  printf("coucou\n");
   // Exemples à supprimer
   // setPublicite("Promotions sur les concombres !!!");
   // setArticle("pommes",5.53,18,"pommes.jpg");
   // ajouteArticleTablePanier("cerises",8.96,2);
 }
 
-WindowClient::~WindowClient()
-{
+WindowClient::~WindowClient(){
   delete ui;
 }
 
@@ -526,7 +528,8 @@ void handlerSIGUSR1(int sig){
                 w->dialogueErreur("Erreur", "Vous avez été déconnecté pour cause d'inactivité");
                 break;
 
-      case BUSY : // TO DO (étape 7)
+      case BUSY : // (étape 7)
+                w->dialogueErreur("Erreur", "Le serveur est actuellement en maintenance. Veuillez réessayer plus tard.");
                 break;
 
       default :

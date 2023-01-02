@@ -22,7 +22,6 @@ size_t taille_msg = sizeof(MESSAGE) - sizeof(long);
 
 int main(int argc, char* argv[])
 {
-  return 0;
   // Armement des signaux
   // TO DO
 
@@ -34,10 +33,7 @@ int main(int argc, char* argv[])
 
   // Recuperation de l'identifiant de la file de messages
   fprintf(stderr,"(PUBLICITE %d) Recuperation de l'id de la file de messages\n",getpid());
-  if ((idQ = msgget(CLE,0)) == -1){
-    perror("(PUBLICITE) Erreur de msgget");
-    exit(EXIT_FAILURE);
-  }
+  if ((idQ = msgget(CLE,0)) == -1){perror("(PUBLICITE) Erreur de msgget");exit(EXIT_FAILURE);}
 
   // Recuperation de l'identifiant de la mémoire partagée
   idShm = atoi(argv[1]);

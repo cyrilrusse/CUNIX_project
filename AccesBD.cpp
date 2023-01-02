@@ -36,7 +36,7 @@ int main(int argc,char* argv[])
   connexion = mysql_init(NULL);
   if (mysql_real_connect(connexion,"localhost","Student","PassStudent1_","PourStudent",0,0,0) == NULL){
     fprintf(stderr,"(ACCESBD %d) Erreur de connexion à la base de données...\n", getpid());
-    exit(EXIT_FAILURE);  
+    exit(EXIT_FAILURE);
   }
 
   MESSAGE m;
