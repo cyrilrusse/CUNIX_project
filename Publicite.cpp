@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
+#include <setjmp.h>
 #include "protocole.h" // contient la cle et la structure d'un message
 
 int idQ, idShm;
@@ -19,11 +20,16 @@ char *pShm;
 void handlerSIGUSR1(int sig);
 int fd;
 size_t taille_msg = sizeof(MESSAGE) - sizeof(long);
+sigjmp_buf contexte;
 
 int main(int argc, char* argv[])
 {
   // Armement des signaux
-  // TO DO
+  struct sigaction A;
+  A.sa_handler = handlerSIGUSR1;
+  A.sa_flags = 0;
+  sigemptyset(&A.sa_mask);
+  sigaction(SIGUSR1, &A, NULL);
 
   // Masquage des signaux
   sigset_t mask;
@@ -52,6 +58,8 @@ int main(int argc, char* argv[])
   for (int i=0 ; i<strlen(pub) ; i++) pShm[indDebut + i] = pub[i];
 
   MESSAGE m;
+  sigsetjmp(contexte, 1);
+
   while(1)
   {
     // Envoi d'une requete UPDATE_PUB au serveur
@@ -83,8 +91,20 @@ int main(int argc, char* argv[])
 void handlerSIGUSR1(int sig)
 {
   fprintf(stderr,"(PUBLICITE %d) Nouvelle publicite !\n",getpid());
+  MESSAGE m;
 
   // Lecture message NEW_PUB
+  fprintf(stderr, "ok\n");
+  if (msgrcv(idQ, &m, taille_msg, getpid(), 0) == -1){perror("(PUBLICITE) Erreur de msgrcv");exit(EXIT_FAILURE);}
+  
 
   // Mise en place de la publicité en mémoire partagée
+  for (int i=0 ; i<=50 ; i++) pShm[i] = ' ';
+  pShm[51] = '\0';
+  int indDebut = 25 - strlen(m.data4)/2;
+  fprintf(stderr, "len : %d\n", strlen(m.data4));
+  for (int i=0 ; i<strlen(m.data4) ; i++) pShm[indDebut + i] = m.data4[i];
+
+
+  siglongjmp(contexte, 1);
 }

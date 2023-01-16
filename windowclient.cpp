@@ -86,11 +86,7 @@ WindowClient::WindowClient(QWidget *parent) : QMainWindow(parent), ui(new Ui::Wi
   m.requete = CONNECT;
 
   if(msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1){perror("(CLIENT) Erreur de msgsnd");exit(EXIT_FAILURE);}
-  printf("coucou\n");
-  // Exemples à supprimer
-  // setPublicite("Promotions sur les concombres !!!");
-  // setArticle("pommes",5.53,18,"pommes.jpg");
-  // ajouteArticleTablePanier("cerises",8.96,2);
+
 }
 
 WindowClient::~WindowClient(){

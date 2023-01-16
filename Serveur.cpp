@@ -34,7 +34,6 @@ int rechercheCaddieTableConnexion(int pid);
 int main()
 {
   int index_tab;
-  bool initialisation[6] = {false, false, false, false, false, false};
   // Armement des signaux
 
   struct sigaction B;
@@ -84,7 +83,6 @@ int main()
   afficheTab();
 
   // Création du processus Publicite (étape 2)
-
   if((idShm = shmget(CLE, 52, IPC_CREAT | IPC_EXCL | 0600)) == -1){perror("(SERVEUR) Erreur de shmget");exit(EXIT_FAILURE);}
   
   tab->pidPublicite = fork();
@@ -143,17 +141,14 @@ int main()
               fprintf(stderr,"(SERVEUR %d) Requete LOGIN reçue de %d : --%d--%s--%s--\n",getpid(),m.expediteur,m.data1,m.data2,m.data3);
               
               //Acquisition du sémaphore en no wait, donc si erreur, envoi d'un message busy au client
-              int ret;
-              if((ret = sem_wait(idSem, true)) == -1){
+              if(sem_wait(idSem, true) == -1){
                 reponse.type = m.expediteur;
-                m.requete = 0;
                 reponse.requete = BUSY;
                 reponse.expediteur = getpid();
-                if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
+                if (msgsnd(idQ, &reponse, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
                 kill(m.expediteur, SIGUSR1);
                 break;
               }
-              fprintf(stderr, "valeur retour wait : %d\n", ret);
 
               reponse.data1 = 1;
 
@@ -229,7 +224,8 @@ int main()
                 reponse.type = m.expediteur;
                 reponse.requete = BUSY;
                 reponse.expediteur = getpid();
-                if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
+                if (msgsnd(idQ, &reponse, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
+                kill(m.expediteur, SIGUSR1);
                 break;
               }
 
@@ -251,12 +247,8 @@ int main()
               fprintf(stderr,"(SERVEUR %d) Requete UPDATE_PUB reçue de %d\n",getpid(), m.expediteur);
               
               for(int i = 0; i<6; i++){
-                if(tab->connexions[i].pidFenetre != 0){
-                  if(initialisation[i])
-                    kill(tab->connexions[i].pidFenetre, SIGUSR2);
-                  else
-                    initialisation[i] = true;
-                }
+                if(tab->connexions[i].pidFenetre != 0)
+                  kill(tab->connexions[i].pidFenetre, SIGUSR2);
               }
 
               break;
@@ -269,7 +261,8 @@ int main()
                 reponse.type = m.expediteur;
                 reponse.requete = BUSY;
                 reponse.expediteur = getpid();
-                if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
+                if (msgsnd(idQ, &reponse, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
+                kill(m.expediteur, SIGUSR1);
                 break;
               }              
 
@@ -293,7 +286,8 @@ int main()
                 reponse.type = m.expediteur;
                 reponse.requete = BUSY;
                 reponse.expediteur = getpid();
-                if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
+                if (msgsnd(idQ, &reponse, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
+                kill(m.expediteur, SIGUSR1);
                 break;
               }
 
@@ -315,7 +309,8 @@ int main()
                 reponse.type = m.expediteur;
                 reponse.requete = BUSY;
                 reponse.expediteur = getpid();
-                if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
+                if (msgsnd(idQ, &reponse, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
+                kill(m.expediteur, SIGUSR1);
                 break;
               }
               
@@ -337,7 +332,8 @@ int main()
                 reponse.type = m.expediteur;
                 reponse.requete = BUSY;
                 reponse.expediteur = getpid();
-                if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
+                if (msgsnd(idQ, &reponse, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
+                kill(m.expediteur, SIGUSR1);
                 break;
               }
 
@@ -359,7 +355,8 @@ int main()
                 reponse.type = m.expediteur;
                 reponse.requete = BUSY;
                 reponse.expediteur = getpid();
-                if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
+                if (msgsnd(idQ, &reponse, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
+                kill(m.expediteur, SIGUSR1);
                 break;
               }
 
@@ -370,19 +367,41 @@ int main()
               }
 
               // Libération du semaphore
-              sem_signal(idSem);    
+              sem_signal(idSem); 
               break;
 
-      case PAYER : // TO DO
+      case PAYER :
               fprintf(stderr,"(SERVEUR %d) Requete PAYER reçue de %d\n",getpid(),m.expediteur);
               
+              //Acquisition du sémaphore en no wait, donc si erreur, envoi d'un message busy au client
+              if(sem_wait(idSem, true) == -1){
+                reponse.type = m.expediteur;
+                reponse.requete = BUSY;
+                reponse.expediteur = getpid();
+                if (msgsnd(idQ, &reponse, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
+                kill(m.expediteur, SIGUSR1);
+                break;
+              }
+
+              index_tab = rechercheTableConnexion(m.expediteur);
+              if(index_tab != -1){
+                m.type = tab->connexions[index_tab].pidCaddie;
+
+                if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
+              }
+              
               // Libération du semaphore
-              // sem_signal(idSem);
+              sem_signal(idSem);
               break;
 
-      case NEW_PUB :  // TO DO
+      case NEW_PUB :
               fprintf(stderr,"(SERVEUR %d) Requete NEW_PUB reçue de %d\n",getpid(),m.expediteur);
-              
+              m.type = tab->pidPublicite;
+              m.expediteur = getpid();
+
+              if (msgsnd(idQ, &m, taille_msg, 0) == -1){perror("Erreur de msgsnd");exit(EXIT_FAILURE);}
+              kill(tab->pidPublicite, SIGUSR1);
+
               break;
     }
     afficheTab();
@@ -437,7 +456,7 @@ void handlerSIGCHLD(int sig){
   if(index_tab != -1)
     tab->connexions[index_tab].pidCaddie = 0;
 
-  siglongjmp(contexte, 2);
+  siglongjmp(contexte, 1);
 }
 
 int rechercheTableConnexion(int pid){

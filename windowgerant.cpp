@@ -190,9 +190,6 @@ void WindowGerant::on_pushButtonPublicite_clicked(){
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void WindowGerant::on_pushButtonModifier_clicked(){
   fprintf(stderr,"(GERANT %d) Clic sur bouton Modifier\n",getpid());
-  // TO DO
-  //cerr << "Prix  : --"  << getPrix() << "--" << endl;
-  //cerr << "Stock : --"  << getStock() << "--" << endl;
 
   char Prix[20];
   sprintf(Prix,"%f",getPrix());
